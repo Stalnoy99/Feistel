@@ -1,0 +1,161 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+
+        StringBuilder newText = new StringBuilder();
+        System.out.print("Введите путь к файлу: ");
+        Scanner toPath = new Scanner(System.in);
+        String path = toPath.nextLine();
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(path));
+        int symbol = bufferedReader.read();
+
+        ArrayList<Integer> bytesOfSymbols = new ArrayList<>();
+
+        int num = 0;
+        while (symbol != -1) {
+            char c = (char) symbol;
+            symbol = bufferedReader.read();
+            bytesOfSymbols.add((int) c);
+            num++;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < num; i++) {
+            sb.append(String.format("%16s", Integer.toBinaryString(bytesOfSymbols.get(i))).replace(' ', '0')).append(".");
+        }
+        String tmp = sb.toString().replaceAll("\\.", "");
+        System.out.println("Bites: " + tmp);
+        int rounds = 0;
+        System.out.println("Введите количество раундов от 2 до 6: ");
+        Scanner scanner = new Scanner(System.in);
+        rounds = scanner.nextInt();
+        while (rounds < 2 || rounds > 6) {
+            System.out.println("Недопустимое значение. Введите количество раундов повторно (от 2 до 6)");
+            rounds = scanner.nextInt();
+        }
+        int[] keys = new int[rounds];
+        for (int i = 0; i < rounds; i++) {
+            System.out.println("Введите ключ №" + (i + 1) + ": ");
+            keys[i] = scanner.nextInt();
+        }
+
+        StringBuilder bytesForFunction = new StringBuilder(tmp);
+        int flag = bytesForFunction.toString().length() % 64;
+        String addString = "0000000000100000";
+        if (flag != 0) bytesForFunction.append(addString.repeat(4 - flag / 16));
+        for (int i = 0; i <= bytesForFunction.length() - 64; i += 64) {
+            String left = bytesForFunction.substring(i, i + 32);
+            String right = bytesForFunction.substring(i + 32, i + 64);
+
+            for (int round = 0; round < rounds; round++) {
+                int f;
+                int keysSqr = (keys[round] + (int) Math.pow(keys[round], (keys[round]))) * (round + 1) + (round + 1) * keys[round] % 10;
+                int keysDec = +keys[round] % 10 + (keys[round] / 10) % 10;
+                f = Integer.parseInt(right, 2) ^ (Math.abs((keysSqr + keysDec) % (int) Math.pow(2, 15) + ((keysSqr + keysDec) * (int) Math.pow(2, 17)) % (int) (Math.pow(2, 31))));
+                f ^= Integer.parseInt(left, 2);
+                left = right;
+                right = Integer.toBinaryString(f);
+            }
+            StringBuilder newLeft = new StringBuilder();
+            newLeft.append("0".repeat(Math.max(0, 32 - left.length())));
+            newLeft.append(left);
+
+            StringBuilder newRight = new StringBuilder();
+            newRight.append("0".repeat(Math.max(0, 32 - right.length())));
+            newRight.append(right);
+
+            newText.append(newLeft).append(newRight);
+        }
+        System.out.println("Новый бинарный код: " + newText.toString());
+        binToText(newText.toString());
+        decoding();
+    }
+
+    static void decoding() throws IOException {
+        StringBuilder newText = new StringBuilder();
+        System.out.print("Введите путь к файлу: ");
+        Scanner toPath = new Scanner(System.in);
+        String path = toPath.nextLine();
+        BufferedReader bufferedReader = new BufferedReader(new FileReader(path));
+        int symbol = bufferedReader.read();
+        int num = 0;
+        ArrayList<Integer> bytesOfSymbols = new ArrayList<>();
+
+        while (symbol != -1) {
+            bytesOfSymbols.add(symbol);
+            symbol = bufferedReader.read();
+            num++;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < num; i++) {
+            if (!(i == num - 2 && bytesOfSymbols.get(i).equals(13)) && !(i == num - 1 && bytesOfSymbols.get(i).equals(10)))
+                sb.append(String.format("%16s", Integer.toBinaryString(bytesOfSymbols.get(i))).replace(' ', '0')).append(".");
+        }
+        String tmp = sb.toString().replaceAll("\\.", "");
+        System.out.println("Bites: " + tmp);
+        int rounds = 0;
+        System.out.println("Введите количество раундов от 2 до 6: ");
+        Scanner scanner = new Scanner(System.in);
+        rounds = scanner.nextInt();
+        while (rounds < 2 || rounds > 6) {
+            System.out.println("Недопустимое значение. Введите количество раундов повторно (от 2 до 6)");
+            rounds = scanner.nextInt();
+        }
+        int[] keys = new int[rounds];
+        for (int i = 0; i < rounds; i++) {
+            System.out.println("Введите ключ №" + (i + 1) + ": ");
+            keys[i] = scanner.nextInt();
+        }
+
+        StringBuilder bytesForFunction = new StringBuilder(tmp);
+        for (int i = 0; i <= bytesForFunction.length() - 64; i += 64) {
+            String left = bytesForFunction.substring(i, i + 32);
+            String right = bytesForFunction.substring(i + 32, i + 64);
+
+            for (int round = rounds - 1; round >= 0; round--) {
+                int newLeft;
+                int newRight;
+                newRight = Integer.parseInt(left, 2);
+                int keysSqr = (keys[round] + (int) Math.pow(keys[round], (keys[round]))) * (round + 1) + (round + 1) * keys[round] % 10;
+                int keysDec = +keys[round] % 10 + (keys[round] / 10) % 10;
+                int f = (newRight ^ (Math.abs((keysSqr + keysDec) % (int) Math.pow(2, 15) + ((keysSqr + keysDec) * (int) Math.pow(2, 17)) % (int) (Math.pow(2, 31)))));
+                newLeft = Integer.parseInt(right, 2) ^ f;
+                left = Integer.toString(newLeft, 2);
+                right = Integer.toString(newRight, 2);
+
+            }
+            StringBuilder newLeft = new StringBuilder();
+            newLeft.append("0".repeat(Math.max(0, 32 - left.length())));
+            newLeft.append(left);
+
+            StringBuilder newRight = new StringBuilder();
+            newRight.append("0".repeat(Math.max(0, 32 - right.length())));
+            newRight.append(right);
+
+            newText.append(newLeft).append(newRight);
+        }
+        System.out.println("Новый бинарный код: " + newText.toString());
+        binToText(newText.toString());
+    }
+
+    static void binToText(String input) throws IOException {
+        String[] str = input.split("(?<=\\G.{16})");
+        StringBuilder newText = new StringBuilder();
+        for (int i = 0; i < str.length; i++) {
+            newText.append((char) Integer.parseInt(str[i], 2));
+        }
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Куда записать зашифрованный текст?");
+        Path file = Paths.get(scanner.nextLine());
+        Files.write(file, Collections.singleton(newText.toString()));
+    }
+
+}
